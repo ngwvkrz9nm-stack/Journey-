@@ -3,7 +3,17 @@
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 const fmtDate = (k, o = { month: 'long', day: 'numeric', year: 'numeric' }) => MJ.parseDate(k).toLocaleDateString('en-US', o);
-const GLYPH = { goal: '★', progress: '✓', detour: '↝', pit: '☕' };
+const GLYPH = { goal: '✓', progress: '✓', detour: '!', pit: 'Ⅱ' };
+// Status badges matching the road pins (decorative; text labels always accompany them).
+const BADGE_COL = { goal: ['#33d983', '#0b8a4c'], progress: ['#a6ee96', '#47a85f'], detour: ['#ffd84a', '#dc8d00'], pit: ['#b994ff', '#6b3fd2'] };
+function badge(kind, size = 22) {
+  const [a, b] = BADGE_COL[kind], id = 'bg-' + kind;
+  const glyph = kind === 'detour' ? '<path d="M12 6.5v6.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17" r="1.6" fill="#fff"/>'
+    : kind === 'pit' ? '<rect x="8.3" y="7.5" width="2.6" height="9" rx="1" fill="#fff"/><rect x="13.1" y="7.5" width="2.6" height="9" rx="1" fill="#fff"/>'
+    : `<path d="M7.2 12.4l3.2 3.2 6.4-6.6" fill="none" stroke="${kind === 'progress' ? '#14462a' : '#fff'}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `<svg class="badge-ic" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#${id})"/><circle cx="12" cy="12" r="10.4" fill="none" stroke="rgba(255,255,255,.35)"/>${glyph}</svg>`;
+}
+const TARGET_ICON = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="#56c8ff" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="13" r="8"/><circle cx="11" cy="13" r="4.5"/><circle cx="11" cy="13" r="1.2" fill="#56c8ff"/><path d="M11 13 19 5M16 5h3v3"/></svg>';
 const ICONS = ['◆', '🍽', '🚶', '🏃', '📖', '💰', '📵', '🎵', '🧘', '💧', '🌱', '✍️', '💤', '🧠', '🎯', '⛰'];
 
 /* ---------- state ---------- */
@@ -34,7 +44,9 @@ function persist() {
 /* ---------- navigation (hash based so the system back gesture works) ---------- */
 const SCREENS = ['today', 'history', 'insights', 'journal', 'journeys', 'journeyForm', 'check', 'pit', 'settings'];
 const TAB_FOR = { journeyForm: 'journeys', check: 'today', pit: 'today', settings: null };
-function go(name) { if (location.hash !== '#' + name) location.hash = name; else show(name); }
+// Routes use '#/name' so the browser never treats them as in-page anchors (which would scroll the header away).
+const route = () => location.hash.replace(/^#\/?/, '');
+function go(name) { if (route() !== name) location.hash = '/' + name; else show(name); }
 function show(name) {
   if (!SCREENS.includes(name)) name = 'today';
   if (!store.journeys.length && name !== 'journeyForm' && name !== 'settings') { openJourneyForm('new'); return; }
@@ -49,15 +61,22 @@ function show(name) {
   road.setActive(name === 'today');
   renderHeader();
   ({ today: renderToday, history: renderHistory, insights: renderInsights, journal: renderJournal, journeys: renderJourneys, pit: renderPit, settings: renderSettings }[name] || (() => {}))();
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0); requestAnimationFrame(() => window.scrollTo(0, 0));
 }
-window.addEventListener('hashchange', () => show(location.hash.slice(1) || 'today'));
+window.addEventListener('hashchange', () => show(route() || 'today'));
 document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav));
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => history.length > 1 ? history.back() : go('today'));
 $('journeyChip').onclick = () => go('journeys');
 $('openSettings').onclick = () => go('settings');
+$('openBell').onclick = () => openBell();
 
-function renderHeader() { const j = active(); $('chipIcon').textContent = j ? j.icon : '◆'; $('chipName').textContent = j ? j.name : 'My Journey'; }
+function renderHeader() {
+  const j = active();
+  document.querySelectorAll('[data-jname]').forEach(e => { e.textContent = j ? (j.icon + ' ' + j.name).toUpperCase() : ''; });
+  document.body.classList.toggle('on-today', screen === 'today');
+  // On Today the header sits inside the scene, so status banners go below it.
+  const f = $('fatal'); if (screen === 'today') $('heroHint').after(f); else document.querySelector('main').before(f);
+}
 
 /* ---------- road ---------- */
 const road = new JourneyRoad($('road'), { onSelectDay: d => openDay(d) });
@@ -110,13 +129,17 @@ function renderToday() {
   MJ.reconcilePit(j);
   const s = MJ.stats(j.entries), p = MJ.pitSummary(j, today);
   $('jName').textContent = j.name;
-  $('jGoal').textContent = j.goal;
+  $('jGoal').textContent = j.summary || j.goal;
+  if (j.icon === '◆') $('chipIcon').innerHTML = TARGET_ICON; else $('chipIcon').textContent = j.icon;
   $('pct').textContent = s.rate === null ? '—' : s.rate + '%';
-  $('pctLabel').textContent = s.recorded ? `Good days · ${s.good} of ${s.recorded} recorded` : 'Your road begins here';
+  $('pctLabel').textContent = s.recorded ? 'Good Days' : 'Your road begins';
+  $('pctLabel').title = s.recorded ? `${s.good} of ${s.recorded} recorded days were good days` : '';
+  $('pctBar').style.width = (s.rate || 0) + '%';
   $('heroHint').classList.toggle('hidden', !s.recorded && !s.pit);
-  $('stats').replaceChildren(...[['goal', 'Goal', s.goal, '★'], ['progress', 'Progress', s.progress, '✓'], ['detour', 'Detours', s.detour, '↝'], ['pit', 'Pit credits', p.balance, '☕']].map(([k, label, n, g]) => {
-    const m = el('div', 'metric'), st = el('strong', 't-' + k); const i = el('i', '', g); i.setAttribute('aria-hidden', 'true'); st.append(i, String(n)); m.append(st, el('small', '', label)); return m;
+  $('stats').replaceChildren(...[['goal', 'Goal Days', s.goal], ['progress', 'Progress Days', s.progress], ['detour', 'Detour Days', s.detour], ['pit', 'Pit Stop Days', s.pit]].map(([k, label, n]) => {
+    const m = el('div', 'hs'), top = el('div', 'hs-top'); top.innerHTML = badge(k, 22); top.append(el('strong', '', String(n))); m.append(top, el('small', '', label)); return m;
   }));
+  $('legend').innerHTML = ['goal', 'progress', 'detour', 'pit'].map(k => `<span>${badge(k, 15)}${MJ.KIND_LABEL[k].replace(' Day', '')}</span>`).join('');
   const act = $('todayAction'); act.replaceChildren();
   const e = j.entries[today], c = MJ.kind(e);
   if (c === 'pit') {
@@ -355,12 +378,12 @@ function openJourneyForm(mode) {
   $('jfTemplates').classList.toggle('hidden', mode === 'edit');
   $('jfTemplates').replaceChildren(...MJ.TEMPLATES.map(t => { const b = el('button', t.id === 'custom' ? 'on' : '', (t.id === 'custom' ? '' : t.icon + ' ') + t.label); b.type = 'button'; b.onclick = () => applyTemplate(t); return b; }));
   jfTemplate = 'custom'; jfIcon = j ? j.icon : '◆';
-  $('jfName').value = j ? j.name : ''; $('jfGoal').value = j ? j.goal : ''; $('jfBoundary').value = j ? j.boundary : ''; $('jfStart').value = j ? j.start : today; $('jfStart').max = today;
+  $('jfSummary').value = j ? j.summary || '' : ''; $('jfName').value = j ? j.name : ''; $('jfGoal').value = j ? j.goal : ''; $('jfBoundary').value = j ? j.boundary : ''; $('jfStart').value = j ? j.start : today; $('jfStart').max = today;
   $('jfChapterNote').textContent = mode === 'edit' ? 'Changing either question starts a new chapter from today. Days already recorded keep their original results.' : '';
   $('jfError').textContent = ''; $('jfSave').textContent = mode === 'edit' ? 'Save changes' : 'Start this journey';
   document.querySelectorAll('#journeyForm [data-back]').forEach(b => b.classList.toggle('hidden', first));
   renderIcons();
-  if (location.hash !== '#journeyForm') location.hash = 'journeyForm'; else { screen = 'journeyForm'; document.querySelectorAll('.screen').forEach(s => s.classList.toggle('hidden', s.id !== 'journeyForm')); document.body.classList.toggle('onboarding', first); road.setActive(false); }
+  if (route() !== 'journeyForm') location.hash = '/journeyForm'; else { screen = 'journeyForm'; document.querySelectorAll('.screen').forEach(s => s.classList.toggle('hidden', s.id !== 'journeyForm')); document.body.classList.toggle('onboarding', first); road.setActive(false); }
 }
 function applyTemplate(t) {
   jfTemplate = t.id; document.querySelectorAll('#jfTemplates button').forEach((b, i) => b.classList.toggle('on', MJ.TEMPLATES[i].id === t.id));
@@ -368,16 +391,16 @@ function applyTemplate(t) {
 }
 function renderIcons() { $('jfIcons').replaceChildren(...ICONS.map(i => { const b = el('button', i === jfIcon ? 'on' : '', i); b.type = 'button'; b.setAttribute('aria-label', 'Icon ' + i); b.setAttribute('aria-pressed', String(i === jfIcon)); b.onclick = () => { jfIcon = i; renderIcons(); }; return b; })); }
 $('jfSave').onclick = () => {
-  const name = $('jfName').value.trim(), goal = $('jfGoal').value.trim(), boundary = $('jfBoundary').value.trim(), start = $('jfStart').value;
+  const summary = $('jfSummary').value.trim(), name = $('jfName').value.trim(), goal = $('jfGoal').value.trim(), boundary = $('jfBoundary').value.trim(), start = $('jfStart').value;
   if (!name) return void ($('jfError').textContent = 'Give your journey a name.');
   if (!goal || !boundary) return void ($('jfError').textContent = 'Write both questions — your full goal and your progress boundary.');
   if (!MJ.isDate(start) || start > today) return void ($('jfError').textContent = 'Choose a start date of today or earlier.');
   if (jfMode === 'edit') {
     const j = active(), firstEntry = MJ.sortedKeys(j.entries)[0];
     if (firstEntry && start > firstEntry) return void ($('jfError').textContent = `The start date can't be after your first recorded day (${fmtDate(firstEntry)}).`);
-    MJ.updateJourney(j, { name, icon: jfIcon, goal, boundary, start }, today);
+    MJ.updateJourney(j, { name, icon: jfIcon, goal, boundary, start, summary }, today);
   } else {
-    const j = MJ.newJourney({ name, icon: jfIcon, goal, boundary, start, template: jfTemplate });
+    const j = MJ.newJourney({ name, icon: jfIcon, goal, boundary, start, template: jfTemplate, summary });
     store.journeys.push(j); store.activeJourneyId = j.id; resetCal();
   }
   if (!persist()) return;
@@ -480,7 +503,24 @@ $('deleteBtn').onclick = () => {
 };
 
 /* ---------- backup reminder ---------- */
+function openBell() {
+  const body = $('bellBody'); body.replaceChildren();
+  const last = store.prefs.lastBackupAt, due = backupDue();
+  body.append(el('p', 'small', last ? `Last backup: ${new Date(last).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` : 'You have not exported a backup from this device yet.'));
+  if (due) body.append(el('p', 'small t-detour', 'A backup is due. Your journey is only stored on this device.'));
+  const j = active();
+  if (j) { MJ.reconcilePit(j); const p = MJ.pitSummary(j, today); body.append(el('p', 'small', p.balance ? `☕ ${p.balance} Pit Stop credit${p.balance === 1 ? '' : 's'} available for ${j.name}. ${p.eligibility.allowed ? 'You can use one today.' : p.eligibility.reason}` : `☕ ${p.toNext} more Good Day${p.toNext === 1 ? '' : 's'} to your next Pit Stop credit.`)); }
+  body.append(el('p', 'muted small', store.prefs.backupReminderDays ? `Backup reminders: every ${store.prefs.backupReminderDays} days. Change this in Settings.` : 'Backup reminders are off. Turn them on in Settings.'));
+  $('bellBackup').classList.toggle('hidden', false);
+  const dlg = $('bellDialog'); dlg.returnValue = ''; dlg.onclose = () => { if (dlg.returnValue === 'backup') exportBackup(); }; dlg.showModal();
+}
+function backupDue() {
+  const days = store.prefs.backupReminderDays, total = store.journeys.reduce((n, j) => n + Object.keys(j.entries).length, 0) + store.journal.length;
+  const since = t => t ? (Date.now() - Date.parse(t)) / 864e5 : Infinity;
+  return days > 0 && total >= 5 && since(store.prefs.lastBackupAt) >= days;
+}
 function renderReminder() {
+  $('bellDot').classList.toggle('hidden', !backupDue());
   const days = store.prefs.backupReminderDays, total = store.journeys.reduce((n, j) => n + Object.keys(j.entries).length, 0) + store.journal.length;
   const since = t => t ? (Date.now() - Date.parse(t)) / 864e5 : Infinity;
   const show = !migratedNow && days > 0 && total >= 5 && since(store.prefs.lastBackupAt) >= days && since(store.prefs.reminderSnoozedAt) >= Math.min(7, days);
@@ -508,4 +548,4 @@ if (sessionStorage.getItem('mj-migrated') === '1' && store.journeys.length) {
   const ok = el('button', 'link', 'Got it'); ok.onclick = () => $('fatal').classList.add('hidden'); $('fatal').append(el('br'), ok);
   migratedNow = true; renderReminder();
 }
-{ const start = location.hash.slice(1); show(['journeyForm', 'check'].includes(start) && store.journeys.length ? 'today' : start || 'today'); }
+{ const start = route(); show(['journeyForm', 'check'].includes(start) && store.journeys.length ? 'today' : start || 'today'); }

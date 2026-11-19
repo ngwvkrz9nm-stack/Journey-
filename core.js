@@ -49,9 +49,9 @@ const TEMPLATES = [
   { id: 'screen', name: 'Screen time', icon: '📵', goal: 'Did I stay under my screen-time goal today?', boundary: 'Did I stay under my upper screen-time limit?', label: 'Limiting screen time' },
   { id: 'practice', name: 'Practice', icon: '🎵', goal: 'Did I complete my full practice session today?', boundary: 'Did I practice at least my minimum today?', label: 'Practicing a skill' }
 ];
-function newJourney({ name, icon, goal, boundary, start, template }) {
+function newJourney({ name, icon, goal, boundary, start, template, summary }) {
   const s = isDate(start) ? start : todayKey();
-  return { id: uid('j'), name: str(name, 60, 'My journey'), icon: str(icon, 4, '◆'), goal: str(goal, 160, 'Did I meet my goal today?'), boundary: str(boundary, 160, 'Did I stay within my progress boundary today?'), start: s, template: template || 'custom', createdAt: new Date().toISOString(), archived: false, chapters: [{ from: s, goal: str(goal, 160, 'Did I meet my goal today?'), boundary: str(boundary, 160, 'Did I stay within my progress boundary today?') }], entries: {}, pit: { spent: [], claimed: {} } };
+  return { id: uid('j'), name: str(name, 60, 'My journey'), icon: str(icon, 4, '◆'), summary: str(summary, 60, ''), goal: str(goal, 160, 'Did I meet my goal today?'), boundary: str(boundary, 160, 'Did I stay within my progress boundary today?'), start: s, template: template || 'custom', createdAt: new Date().toISOString(), archived: false, chapters: [{ from: s, goal: str(goal, 160, 'Did I meet my goal today?'), boundary: str(boundary, 160, 'Did I stay within my progress boundary today?') }], entries: {}, pit: { spent: [], claimed: {} } };
 }
 function sortedKeys(entries) { return Object.keys(entries).filter(isDate).sort(); }
 // Goal changes become chapters. Past days keep the result recorded under their chapter.
@@ -60,8 +60,9 @@ function chapterFor(j, date) {
   for (const ch of j.chapters) if (ch.from <= date) c = ch;
   return c || { from: j.start, goal: j.goal, boundary: j.boundary };
 }
-function updateJourney(j, { name, icon, goal, boundary, start }, effective = todayKey()) {
+function updateJourney(j, { name, icon, goal, boundary, start, summary }, effective = todayKey()) {
   if (name !== undefined) j.name = str(name, 60, j.name);
+  if (summary !== undefined) j.summary = typeof summary === 'string' ? summary.trim().slice(0, 60) : j.summary;
   if (icon !== undefined) j.icon = str(icon, 4, j.icon);
   if (isDate(start)) { j.start = start; if (j.chapters[0] && (j.chapters.length < 2 || start < j.chapters[1].from)) j.chapters[0].from = start; }
   const g = str(goal, 160, j.goal), b = str(boundary, 160, j.boundary);
@@ -194,7 +195,7 @@ function cleanJourney(j) {
   const goal = str(j.goal, 160, 'Did I meet my goal today?'), boundary = str(j.boundary, 160, 'Did I stay within my progress boundary today?');
   let chapters = Array.isArray(j.chapters) ? j.chapters.filter(c => c && isDate(c.from)).map(c => ({ from: c.from, goal: str(c.goal, 160, goal), boundary: str(c.boundary, 160, boundary) })).sort((a, b) => a.from.localeCompare(b.from)) : [];
   if (!chapters.length) chapters = [{ from: start, goal, boundary }];
-  return { id: str(j.id, 80, uid('j')), name: str(j.name, 60, 'My journey'), icon: str(j.icon, 4, '◆'), goal, boundary, start, template: str(j.template, 20, 'custom'), createdAt: str(j.createdAt, 40, new Date().toISOString()), archived: j.archived === true, chapters, entries: cleanEntries(j.entries).entries, pit: cleanPit(j.pit) };
+  return { id: str(j.id, 80, uid('j')), name: str(j.name, 60, 'My journey'), icon: str(j.icon, 4, '◆'), summary: str(j.summary, 60, ''), goal, boundary, start, template: str(j.template, 20, 'custom'), createdAt: str(j.createdAt, 40, new Date().toISOString()), archived: j.archived === true, chapters, entries: cleanEntries(j.entries).entries, pit: cleanPit(j.pit) };
 }
 const JOURNAL_TYPES = ['reflection', 'note', 'milestone'];
 function cleanJournalEntry(e) {
@@ -241,7 +242,7 @@ function fromLegacy({ entries, settings, goals, pit, journal }) {
   const curSig = s.type === 'habit' ? 'h' : `c:${s.target}:${s.limit}`;
   if (!chapters.length) chapters.push({ from: start, goal: curGoal, boundary: curBoundary });
   else if (curSig !== sig) { const after = addDays(keys[keys.length - 1], 1); chapters.push({ from: after > todayKey() ? todayKey() : after, goal: curGoal, boundary: curBoundary }); }
-  const j = cleanJourney({ id: uid('j'), name: str(s.name, 60, 'My journey'), icon: s.type === 'habit' ? '◆' : '🍽', goal: curGoal, boundary: curBoundary, start, template: s.type === 'habit' ? 'custom' : 'eating', chapters, entries: cleaned.entries, pit: cleanPit(pit) });
+  const j = cleanJourney({ id: uid('j'), name: str(s.name, 60, 'My journey'), icon: s.type === 'habit' ? '◆' : '🍽', summary: s.type === 'habit' ? '' : `Around ${fmt(s.target)} calories`, goal: curGoal, boundary: curBoundary, start, template: s.type === 'habit' ? 'custom' : 'eating', chapters, entries: cleaned.entries, pit: cleanPit(pit) });
   const notes = [];
   if (journal && typeof journal === 'object' && !Array.isArray(journal)) for (const [date, text] of Object.entries(journal)) { const n = cleanJournalEntry({ date, text, journeyId: j.id, type: 'reflection' }); if (n) notes.push(n); }
   return { journey: j, journal: notes, skipped: cleaned.skipped };

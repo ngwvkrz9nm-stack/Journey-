@@ -13,7 +13,7 @@ will save the same bytes with the `.mjourney` extension and register that type, 
   "data": {
     "activeJourneyId": "j-…",
     "journeys": [{
-      "id": "j-…", "name": "Mindful eating", "icon": "🍽", "start": "2026-01-01", "template": "eating", "createdAt": "…", "archived": false,
+      "id": "j-…", "name": "Mindful eating", "icon": "🍽", "summary": "Around 2,100 calories", "start": "2026-01-01", "template": "eating", "createdAt": "…", "archived": false,
       "goal": "Did I stay around 2,100 calories?",            // current question 1
       "boundary": "Did I stay at or below 3,000 calories?",   // current question 2
       "chapters": [ { "from": "2026-01-01", "goal": "…2,300…", "boundary": "…3,200…" }, { "from": "2026-09-01", "goal": "…", "boundary": "…" } ],

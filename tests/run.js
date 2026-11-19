@@ -15,9 +15,9 @@ async function open(time,seed,{reduced=false}={}){
   if(time)await p.clock.install({time:new Date(time)});
   await p.goto(BASE+'/blank.html').catch(()=>{});await p.goto(BASE+'/advanced.html#none');await p.waitForURL(/index\.html/);
   await p.evaluate(([seed,LEG])=>{localStorage.clear();if(!seed)return;if(seed.v6)localStorage.setItem('my-journey-data-v6',JSON.stringify(seed.v6));for(const [k,v] of Object.entries(seed.legacy||{}))localStorage.setItem(LEG[k],JSON.stringify(v))},[seed,LEG]);
-  await p.goto(BASE+'/index.html#today');await p.reload();await p.waitForTimeout(150);return p}
+  await p.goto(BASE+'/index.html#/today');await p.reload();await p.waitForTimeout(150);return p}
 const store=p=>p.evaluate(()=>JSON.parse(localStorage.getItem('my-journey-data-v6')));
-const go=(p,s)=>p.evaluate(s=>location.hash=s,s).then(()=>p.waitForTimeout(120));
+const go=(p,s)=>p.evaluate(s=>location.hash='/'+s,s).then(()=>p.waitForTimeout(120));
 const days=(start,list)=>{const e={};const d=new Date(start+'T12:00:00');for(const c of list){const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(c==='g')e[k]={q1:'yes',q2:'yes',result:'good',note:''};if(c==='p')e[k]={q1:'no',q2:'yes',result:'good',note:''};if(c==='d')e[k]={q1:'no',q2:'no',result:'bad',note:''};if(c==='s')e[k]={pitstop:true,note:''};d.setDate(d.getDate()+1)}return e};
 const NOW='2026-11-19T19:00:00';
 const LEGACY={legacy:{settings:{name:'Mindful eating',type:'calories',target:2100,limit:3000,start:'2026-11-01'},entries:days('2026-11-01','ggpgdggsgg'.split('')),pit:{spent:[{date:'2026-11-08',at:''}],claimed:{'target-14':true}},journal:{'2026-11-05':'Old reflection'}}};
@@ -44,7 +44,7 @@ const LEGACY={legacy:{settings:{name:'Mindful eating',type:'calories',target:210
   ok(await p.textContent('#pct')==='—'&&await p.evaluate(()=>road.days.length)===0,'empty road: no history shown');
   await p.click('#checkin');await p.click('[data-q=q1][data-v=yes]');ok(await p.getAttribute('[data-q=q2][data-v=yes]','aria-pressed')==='true','goal met implies boundary met');
   await p.click('#saveCheck');await p.waitForTimeout(150);
-  ok(await p.evaluate(()=>road.days.length===1&&road.days[0].kind==='goal'&&road.anims.some(a=>a.type==='grow')&&road.anims.some(a=>a.type==='cam')),'check-in adds a road section and animates it forward');
+  ok(await p.evaluate(()=>road.days.length===1&&road.days[0].kind==='goal'&&road.anims.some(a=>a.type==='grow')&&road.anims.some(a=>a.type==='pin')),'first check-in extends the road with a growing tile and a dropping pin');
   ok(/Goal Day/.test(await p.textContent('#todayAction')),'today shows as recorded');
   ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
 
@@ -66,6 +66,15 @@ const LEGACY={legacy:{settings:{name:'Mindful eating',type:'calories',target:210
   ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
  {const p=await open(NOW,LEGACY,{reduced:true});await p.waitForTimeout(200);await p.click('#checkin');await p.click('[data-q=q1][data-v=no]');await p.click('[data-q=q2][data-v=yes]');await p.click('#saveCheck');await p.waitForTimeout(100);
   ok(await p.evaluate(()=>road.anims.length===0&&Math.abs(road.camZ-road.targetCam(road.days.length))<1e-9),'reduced motion: road updates without animation');await p.context().close()}
+
+ {const MJ=require('../core.js');const st=MJ.emptyStore();const j=MJ.newJourney({name:'Long',goal:'g?',boundary:'b?',start:'2026-10-01'});j.entries=days('2026-10-01',Array(40).fill('g'));st.journeys=[j];st.activeJourneyId=j.id;
+  const p=await open(NOW,{v6:st});await p.waitForTimeout(2300);const tipBefore=await p.evaluate(()=>road.camZ);
+  await p.click('#checkin');await p.click('[data-q=q2][data-v=no]');await p.click('#saveCheck');await p.waitForTimeout(100);
+  const r=await p.evaluate(()=>({anims:road.anims.map(a=>a.type),cam:road.anims.find(a=>a.type==='cam'),n:road.days.length}));
+  ok(r.n===41&&r.anims.includes('grow')&&r.cam&&r.cam.to<r.cam.from,'full road: new tile grows, then the road slides back (moving forward)');
+  await p.waitForTimeout(2600);ok(Math.abs(await p.evaluate(()=>road.camZ)-tipBefore)<1e-6,'after the move the newest day rests in the same place');
+  const pins=await p.evaluate(()=>road.pins.map(x=>x.date));ok(pins[0]==='2026-11-19'&&pins.length>=2,'pins mark the newest day and the latest of other kinds',JSON.stringify(pins));
+  ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
 
  console.log('Multiple journeys');
  {const p=await open(NOW,LEGACY);await go(p,'journeys');await p.click('#newJourney');await p.click('#jfTemplates button:has-text("Reading")');await p.click('#jfSave');await p.waitForTimeout(200);
@@ -135,7 +144,7 @@ const LEGACY={legacy:{settings:{name:'Mindful eating',type:'calories',target:210
   await p.clock.runFor(60000);ok(await p.textContent('#calendar .today')==='20','day rolls over at midnight while open');
   await p.click('#checkin');ok(/NOVEMBER 20/.test(await p.textContent('#checkDate')),'check-in targets the new day');
   ok(await p.isDisabled('#calendar .day >> text="25"'),'future days disabled');await p.context().close()}
- {const p=await open(NOW,LEGACY);await p.goto(BASE+'/advanced.html#pitstops');await p.waitForURL(/#pit$/);ok(await p.isVisible('#pit'),'old advanced.html links open the matching screen');
+ {const p=await open(NOW,LEGACY);await p.goto(BASE+'/advanced.html#pitstops');await p.waitForURL(/#\/pit$/);ok(await p.isVisible('#pit'),'old advanced.html links open the matching screen');
   await go(p,'history');await p.click('[data-hview=year]');ok(await p.locator('.mini').count()===12,'year view');await p.click('[data-hview=lifetime]');ok(await p.locator('.mini').count()>=12,'lifetime view');
   await p.click('[data-hview=month]');await p.click('#hPrev');ok(/October 2026/.test(await p.textContent('#hTitle')),'month navigation');
   await p.setViewportSize({width:320,height:640});await go(p,'today');const sw=await p.evaluate(()=>document.documentElement.scrollWidth);ok(sw<=320,'no horizontal scroll at 320px',String(sw));

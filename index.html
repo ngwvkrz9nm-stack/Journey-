@@ -18,8 +18,9 @@
 <body>
 <div class="app" id="app">
   <header class="top">
-    <button class="journey-chip" id="journeyChip" aria-label="Switch journey"><span id="chipIcon">◆</span><span id="chipName">My Journey</span><span class="chev" aria-hidden="true">▾</span></button>
-    <button class="icon-btn" id="openSettings" aria-label="Settings and backup">⚙</button>
+    <button class="icon-btn" id="openSettings" aria-label="Menu: settings and backup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="wordmark" aria-label="My Journey"><span aria-hidden="true">My Journey</span><svg viewBox="0 0 200 16" aria-hidden="true" preserveAspectRatio="none"><defs><linearGradient id="swoosh" x1="0" x2="1"><stop offset="0" stop-color="#4fb3ff" stop-opacity="0"/><stop offset=".25" stop-color="#4fb3ff"/><stop offset=".7" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff9ec8" stop-opacity="0"/></linearGradient></defs><path d="M6 13 C60 3 140 1 196 6 C140 5 70 8 6 13Z" fill="url(#swoosh)"/></svg></div>
+    <button class="icon-btn" id="openBell" aria-label="Reminders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><i class="dot hidden" id="bellDot"></i></button>
   </header>
 
   <div id="fatal" class="banner danger hidden" role="alert"></div>
@@ -27,31 +28,35 @@
   <main>
     <!-- TODAY -->
     <section id="today" class="screen" aria-label="Today">
-      <div id="reminder" class="banner hidden" role="status"><span id="reminderText"></span><div class="banner-actions"><button class="link" id="reminderBackup">Back up now</button><button class="link muted" id="reminderLater">Later</button></div></div>
-      <div class="journey-title"><h1 id="jName">My Journey</h1><p id="jGoal"></p></div>
       <div class="hero">
         <canvas id="road" role="img" aria-label="Your journey path"></canvas>
+        <button class="hero-journey" id="journeyChip" aria-label="Current journey. Switch journey">
+          <span class="jbadge" id="chipIcon" aria-hidden="true"></span>
+          <span class="jtext"><b><span id="jName">My Journey</span><svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></b><small><span>Current Journey</span> • <span id="jGoal"></span></small></span>
+        </button>
         <div class="hero-pct" aria-live="polite">
           <strong id="pct">—</strong>
-          <span id="pctLabel">Good days</span>
+          <span id="pctLabel">Good Days</span>
+          <i class="pct-bar"><i id="pctBar"></i></i>
         </div>
+        <div class="hero-stats" id="stats"></div>
       </div>
-      <p class="hero-hint" id="heroHint">Tap any section of road to see that day</p>
+      <p class="hero-hint" id="heroHint">Tap any part of the road or a pin to see that day</p>
+      <div id="reminder" class="banner hidden" role="status"><span id="reminderText"></span><div class="banner-actions"><button class="link" id="reminderBackup">Back up now</button><button class="link muted" id="reminderLater">Later</button></div></div>
       <p class="sr-only" id="roadAnnouncement" role="status" aria-live="polite"></p>
-      <div class="stats4" id="stats"></div>
       <div id="todayAction"></div>
       <button class="pit-row" id="pitRow"></button>
       <div class="card">
         <div class="month-head"><button class="round" id="calPrev" aria-label="Previous month">‹</button><h2 id="calTitle"></h2><button class="round" id="calNext" aria-label="Next month">›</button></div>
         <div id="calendar"></div>
-        <div class="legend" aria-hidden="true"><span><i class="sw goal">★</i>Goal</span><span><i class="sw progress">✓</i>Progress</span><span><i class="sw detour">↝</i>Detour</span><span><i class="sw pit">☕</i>Pit Stop</span></div>
+        <div class="legend" id="legend" aria-hidden="true"></div>
       </div>
       <p class="footnote">Each day adds to your road. Nothing erases the road behind you.</p>
     </section>
 
     <!-- HISTORY -->
     <section id="history" class="screen hidden" aria-label="History">
-      <div class="intro"><span class="eyebrow">EVERY DAY MATTERS</span><h1>History</h1><p>The road you've already traveled.</p></div>
+      <div class="intro"><span class="eyebrow" data-jname>EVERY DAY MATTERS</span><h1>History</h1><p>The road you've already traveled.</p></div>
       <div class="seg" role="tablist"><button data-hview="month" class="on">Month</button><button data-hview="year">Year</button><button data-hview="lifetime">Lifetime</button></div>
       <div class="card">
         <div class="month-head"><button class="round" id="hPrev" aria-label="Previous">‹</button><h2 id="hTitle"></h2><button class="round" id="hNext" aria-label="Next">›</button></div>
@@ -65,7 +70,7 @@
 
     <!-- INSIGHTS -->
     <section id="insights" class="screen hidden" aria-label="Insights">
-      <div class="intro"><span class="eyebrow">THE BIG PICTURE</span><h1>Insights</h1><p>A record, not a judgment.</p></div>
+      <div class="intro"><span class="eyebrow" data-jname>THE BIG PICTURE</span><h1>Insights</h1><p>A record, not a judgment.</p></div>
       <div class="card big-stat"><strong id="iRate">—</strong><span id="iRateText"></span></div>
       <h2 class="section-title">Recent windows</h2>
       <div class="grid4" id="iWindows"></div>
@@ -106,6 +111,7 @@
       <div id="jfTemplates" class="chips wrap"></div>
       <label class="field">Name<input id="jfName" maxlength="60" placeholder="e.g. Morning walks"></label>
       <div class="field">Icon<div class="icons" id="jfIcons"></div></div>
+      <label class="field">Short summary <span class="muted">(optional, shown on Today)</span><input id="jfSummary" maxlength="60" placeholder="e.g. Around 2,100 calories · 30 minutes a day"></label>
       <label class="field">Question 1 — your full goal<textarea id="jfGoal" rows="2" maxlength="160" placeholder="Did I meet my full goal today?"></textarea></label>
       <label class="field">Question 2 — your progress boundary<textarea id="jfBoundary" rows="2" maxlength="160" placeholder="Did I stay within my progress boundary today?"></textarea><small>The easier line that still counts as a good day. Meeting the full goal always counts as meeting this.</small></label>
       <label class="field">Start date<input id="jfStart" type="date"></label>
@@ -162,7 +168,7 @@
         <p class="muted small">Removes the journey and everything recorded in it.</p>
       </div>
       <h2 class="section-title">About</h2>
-      <div class="card"><p class="small">My Journey · Version 5 · Build 2</p><p class="muted small">Works offline. No account, no advertising, no tracking. Your records stay on this device unless you export them.</p></div>
+      <div class="card"><p class="small">My Journey · Version 5 · Build 3</p><p class="muted small">Works offline. No account, no advertising, no tracking. Your records stay on this device unless you export them.</p></div>
     </section>
   </main>
 
@@ -188,6 +194,12 @@
   <label class="field">Entry<textarea id="nText" rows="7" maxlength="20000" placeholder="What happened? What did you learn? Where are you heading next?"></textarea></label>
   <p class="error" id="nError" role="alert"></p>
   <div class="sheet-actions"><button class="primary" value="save" id="nSave">Save entry</button><button class="secondary danger-text hidden" value="delete" id="nDelete">Delete</button><button class="link" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
+
+<dialog id="bellDialog" class="sheet" aria-labelledby="bellTitle"><form method="dialog">
+  <h2 id="bellTitle">Reminders</h2>
+  <div id="bellBody"></div>
+  <div class="sheet-actions"><button class="primary hidden" value="backup" id="bellBackup">Export a backup now</button><button class="link" value="close">Close</button></div>
 </form></dialog>
 
 <dialog id="restoreDialog" class="sheet" aria-labelledby="restoreTitle"><form method="dialog">

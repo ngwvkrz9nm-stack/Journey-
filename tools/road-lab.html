@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Journey Path lab</title>
+<!-- Development aid: renders the Journey Path with sample days beside the approved reference. Not part of the app. -->
+<body style="margin:0;background:#020814;color:#9bb2cf;font:12px system-ui;display:flex;gap:16px;padding:16px;align-items:flex-start">
+<div><canvas id="c" style="width:358px;height:470px;border-radius:26px;display:block"></canvas></div>
+<img src="../docs/reference/approved-journey-path.png" style="width:506px;border-radius:12px">
+<script src="../road.js"></script><script>
+const q=new URLSearchParams(location.search),n=Number(q.get('n')??21);
+const seq='gggpggdgggppgdgsgggpsdgg'.split(''),map={g:'goal',p:'progress',d:'detour',s:'pit'};
+const r=new JourneyRoad(document.getElementById('c'));
+r.setDays(Array.from({length:n},(_,i)=>({date:'2026-10-'+String(i+1).padStart(2,'0'),kind:map[seq[i%seq.length]]})));window.road=r;
+</script></body>

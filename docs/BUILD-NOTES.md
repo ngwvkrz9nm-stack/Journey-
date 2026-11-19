@@ -1,5 +1,48 @@
 # Build notes
 
+## Version 5 — Build 3 (November 19, 2026): the approved art direction
+
+**Art reference:** `docs/reference/approved-journey-path.png` (supplied by the owner) is now the primary visual reference. The comparison is in `docs/build3-vs-reference.png`, and the check-in sequence in `docs/build3-checkin-animation.png`.
+
+### Journey Path (`road.js`), rebuilt to match the reference
+- **Composition:** the road is a fixed, art-directed curve in 3D perspective.
+  - It enters from the lower-left as a glowing ribbon of day tiles and rises across the scene.
+  - It then winds away and climbs into a mountain pass where the sun is rising.
+  - There is no finish line: the road ahead continues as luminous cyan into the distance.
+- **Real data only:**
+  - Each tile is one recorded day, coloured Goal (rich green), Progress (light green), Detour (amber) or Pit Stop (purple), oldest nearest the viewer.
+  - Editing a past day recolours its own tile with a highlight pulse, never a duplicate.
+- **Pins,** as in the reference: the newest day plus the most recent visible day of each other kind, never overlapping. Tap a pin or a tile to see that day.
+- **Animation:**
+  - A new day's tile sweeps in at the end of the road and its pin drops in.
+  - Once the road has reached its resting length, the whole road then glides back one tile toward the viewer: the journey moves forward.
+  - The ambient effect is the reference's light pulse travelling along the road already travelled.
+  - With reduced motion, everything is static.
+- **Scenery:**
+  - **Mountains:** layered ranges built from deliberate massive peaks, with sunlit faces toward the pass, shadowed faces away from it, and light-catching ridgelines.
+  - **Sky and sun:** a small warm sun core inside a wide cool glow, plus stars.
+  - **Valley:** valley mist, rolling hills, and pine tree lines.
+  - **Glow:** a soft neon bloom (the road redrawn into a small canvas and scaled up) and a vignette.
+- **Performance:** about 0.9 ms per frame with 10 years of history (headless Chromium, software rendering). Scenery renders once per size, and drawing runs only while Today is on screen.
+
+### Today layout, matching the reference
+- **Header:** ☰ menu, the italic **My Journey** wordmark with its gradient swoosh, and 🔔 reminders (a dot appears when a backup is due).
+- **Inside the scene:**
+  - The journey row: a circular badge, the name ⌄, and "Current Journey • *summary*".
+  - The **Good Days %** with its cyan bar.
+  - A glass stats strip: Goal / Progress / Detour / Pit Stop Days, with badges matching the pins.
+- **Journey summary:** new optional field (for example "Around 2,100 calories"). It is filled in automatically for migrated calorie journeys and editable in the journey form.
+- **Consistent symbols:** calendar glyphs and the legend use the same ✓ ✓ ! ‖ symbols as the pins.
+
+### Fixes
+- **Header scrolled away:** routes now use `#/screen`. Hashes such as `#history` matched section IDs and made the browser scroll the header off screen when switching screens. This affected Build 2 as well.
+- **Old links:** old `advanced.html` and `#screen` links still work.
+
+### Tests
+- `node tests/core.test.js` **55/55**.
+- `node tests/run.js` **67/67**, including new checks: a full road slides back one tile per new day and the newest day comes to rest in the same place; pins mark the newest day and other kinds.
+- **Not tested:** real iPhone and Android devices.
+
 ## Version 5 — Build 2 (November 19, 2026): one app, many journeys, the new Journey Path
 
 ### Owner decisions implemented
