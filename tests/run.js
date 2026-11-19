@@ -1,94 +1,144 @@
-// My Journey regression tests. Run: node tests/run.js
-// Uses the pre-installed Playwright + Chromium; serves the app from the repo root.
+// My Journey browser tests (unified V5 app). Run: node tests/run.js
+// Uses the pre-installed Playwright + Chromium and serves the repo root.
 'use strict';
 const {chromium}=require('playwright');
-const http=require('http'),fs=require('fs'),path=require('path');
+const http=require('http'),fs=require('fs'),path=require('path'),os=require('os');
 const ROOT=path.resolve(__dirname,'..');
 const TYPES={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.webmanifest':'application/manifest+json'};
 const server=http.createServer((req,res)=>{const f=path.join(ROOT,decodeURIComponent(req.url.split('?')[0]).replace(/^\/$/,'/index.html'));if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);return res.end()}res.writeHead(200,{'Content-Type':TYPES[path.extname(f)]||'application/octet-stream'});fs.createReadStream(f).pipe(res)});
 let BASE,browser,pass=0,fail=0;
-const ok=(cond,name,extra='')=>{if(cond){pass++;console.log('  ✓ '+name)}else{fail++;console.log('  ✗ '+name+(extra?' — '+extra:''))}};
-const K={entries:'calorie-calendar-v1',settings:'journey-calendar-settings-v3',pit:'journey-pit-wallet-v4',journal:'my-journey-journal-v5'};
-async function page(time,seed){const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});const p=await ctx.newPage();p.errors=[];p.on('pageerror',e=>p.errors.push(e.message));p.on('dialog',d=>{p.lastDialog=d.message();d.accept()});
- if(time)await p.clock.install({time:new Date(time)});
- await p.goto(BASE+'/index.html');if(seed){await p.evaluate(([s,K])=>{localStorage.clear();for(const [k,v] of Object.entries(s))localStorage.setItem(K[k],JSON.stringify(v))},[seed,K]);await p.reload()}return p}
-const canon=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.entries(x).sort()):x);
-const store=(p,k)=>p.evaluate(k=>JSON.parse(localStorage.getItem(k)),K[k]);
-const SETTINGS={name:'Test journey',type:'calories',target:2100,limit:3000,start:'2026-11-01',habitTarget:'A?',habitLimit:'B?'};
-const SEED={settings:SETTINGS,entries:{'2026-11-10':{q1:'yes',q2:'yes',result:'good',note:'n1'},'2026-11-11':{pitstop:true,note:''},'2026-11-12':{q1:'no',q2:'no',result:'bad',note:''},'2026-11-13':{q1:'no',q2:'yes',result:'good',note:''}},journal:{'2026-11-12':'Private reflection'},pit:{spent:[{date:'2026-11-11',at:'2026-11-11T10:00:00Z'}],claimed:{'target-14':true,'participation-90':true}}};
+const ok=(c,n,x='')=>{if(c){pass++;console.log('  ✓ '+n)}else{fail++;console.log('  ✗ '+n+(x?' — '+x:''))}};
+const LEG={entries:'calorie-calendar-v1',settings:'journey-calendar-settings-v3',pit:'journey-pit-wallet-v4',journal:'my-journey-journal-v5'};
+async function open(time,seed,{reduced=false}={}){
+  const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block',viewport:{width:390,height:844},reducedMotion:reduced?'reduce':'no-preference'});const p=await ctx.newPage();
+  p.errors=[];p.on('pageerror',e=>p.errors.push(e.message));p.dialogs=[];p.on('dialog',d=>{p.dialogs.push(d.message());d.accept()});
+  if(time)await p.clock.install({time:new Date(time)});
+  await p.goto(BASE+'/blank.html').catch(()=>{});await p.goto(BASE+'/advanced.html#none');await p.waitForURL(/index\.html/);
+  await p.evaluate(([seed,LEG])=>{localStorage.clear();if(!seed)return;if(seed.v6)localStorage.setItem('my-journey-data-v6',JSON.stringify(seed.v6));for(const [k,v] of Object.entries(seed.legacy||{}))localStorage.setItem(LEG[k],JSON.stringify(v))},[seed,LEG]);
+  await p.goto(BASE+'/index.html#today');await p.reload();await p.waitForTimeout(150);return p}
+const store=p=>p.evaluate(()=>JSON.parse(localStorage.getItem('my-journey-data-v6')));
+const go=(p,s)=>p.evaluate(s=>location.hash=s,s).then(()=>p.waitForTimeout(120));
+const days=(start,list)=>{const e={};const d=new Date(start+'T12:00:00');for(const c of list){const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(c==='g')e[k]={q1:'yes',q2:'yes',result:'good',note:''};if(c==='p')e[k]={q1:'no',q2:'yes',result:'good',note:''};if(c==='d')e[k]={q1:'no',q2:'no',result:'bad',note:''};if(c==='s')e[k]={pitstop:true,note:''};d.setDate(d.getDate()+1)}return e};
+const NOW='2026-11-19T19:00:00';
+const LEGACY={legacy:{settings:{name:'Mindful eating',type:'calories',target:2100,limit:3000,start:'2026-11-01'},entries:days('2026-11-01','ggpgdggsgg'.split('')),pit:{spent:[{date:'2026-11-08',at:''}],claimed:{'target-14':true}},journal:{'2026-11-05':'Old reflection'}}};
+
 (async()=>{
  await new Promise(r=>server.listen(0,r));BASE='http://localhost:'+server.address().port;browser=await chromium.launch();
- const NOW='2026-11-19T12:00:00';
 
- console.log('Backup & restore');
- {const p=await page(NOW,SEED);await p.goto(BASE+'/advanced.html#settings');
-  const [dl]=await Promise.all([p.waitForEvent('download'),p.click('#export')]);const file=await dl.path();const data=JSON.parse(fs.readFileSync(file,'utf8'));
-  ok(dl.suggestedFilename()==='MyJourney-Backup-2026-11-19.json','backup file name',dl.suggestedFilename());
-  ok(data.version===5&&data.journal&&data.journal['2026-11-12']==='Private reflection','export includes journal');
-  ok(data.entries['2026-11-11']?.pitstop===true,'export includes Pit Stop day');
-  ok(/Last backup exported/.test(await p.textContent('#backupStatus')),'last-backup status shown');
-  await p.evaluate(K=>{localStorage.setItem(K.entries,'{}');localStorage.setItem(K.journal,'{}');localStorage.setItem(K.pit,JSON.stringify({spent:[],claimed:{}}))},K);await p.reload();
-  await p.setInputFiles('#backupFile',file);await p.waitForFunction(()=>Object.keys(JSON.parse(localStorage.getItem('calorie-calendar-v1')||'{}')).length>0);
-  ok(/4 recorded days \(1 Pit Stop days\)/.test(p.lastDialog)||/Backup restored/.test(p.lastDialog),'restore confirmation lists contents');
-  ok(canon(await store(p,'entries'))===canon(SEED.entries),'entries identical after round trip',JSON.stringify(await store(p,'entries')));
-  ok(JSON.stringify(await store(p,'journal'))===JSON.stringify(SEED.journal),'journal identical after round trip');
-  ok(JSON.stringify(await store(p,'pit'))===JSON.stringify(SEED.pit),'Pit Stop wallet identical after round trip');
-  // v4-format backup (no journal) keeps the current journal
-  const v4={app:'calorie-calendar',version:4,exportedAt:'2026-11-01T00:00:00Z',entries:{'2026-11-02':{q1:'yes',q2:'yes',result:'good',note:''}},pit:{spent:[],claimed:{}},settings:SETTINGS};
-  const v4file=path.join(require('os').tmpdir(),'mj-v4.json');fs.writeFileSync(v4file,JSON.stringify(v4));
-  await p.setInputFiles('#backupFile',v4file);await p.waitForFunction(()=>!!JSON.parse(localStorage.getItem('calorie-calendar-v1'))['2026-11-02']);
-  ok(JSON.stringify(await store(p,'journal'))===JSON.stringify(SEED.journal),'older backup without journal keeps current journal');
-  // invalid file changes nothing
-  const bad=path.join(require('os').tmpdir(),'mj-bad.json');fs.writeFileSync(bad,'{"app":"something-else","entries":{}}');const before=await store(p,'entries');
-  await p.setInputFiles('#backupFile',bad);await p.waitForTimeout(300);
-  ok(/Nothing on this device was changed/.test(p.lastDialog)&&JSON.stringify(await store(p,'entries'))===JSON.stringify(before),'invalid backup rejected without changes');
-  const newer=path.join(require('os').tmpdir(),'mj-new.json');fs.writeFileSync(newer,JSON.stringify({...v4,version:9}));
-  await p.setInputFiles('#backupFile',newer);await p.waitForTimeout(300);ok(/newer version/.test(p.lastDialog),'backup from newer version refused');
+ console.log('Upgrade from Build 1 / Version 4 data');
+ {const p=await open(NOW,LEGACY);const s=await store(p);const j=s.journeys[0];
+  ok(s.journeys.length===1&&Object.keys(j.entries).length===10,'all 10 days migrated into one journey');
+  ok(j.entries['2026-11-08'].pitstop===true&&j.pit.spent.length===1,'Pit Stop day and wallet migrated');
+  ok(s.journal.length===1&&s.journal[0].journeyId===j.id,'journal migrated and linked');
+  ok(await p.evaluate(()=>!!localStorage.getItem('calorie-calendar-v1')&&!!localStorage.getItem('my-journey-journal-v5')),'original data kept on device');
+  ok(/carried over/.test(await p.textContent('#fatal')),'user told about the upgrade');
+  ok(await p.textContent('#pct')==='89%','Good Days % = 8 of 9 (Pit Stop excluded)',await p.textContent('#pct'));
+  ok(await p.textContent('#jName')==='Mindful eating'&&/2,100/.test(await p.textContent('#jGoal')),'journey name and goal on Today');
   ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
 
- console.log('Advanced page');
- {const p=await page(NOW,SEED);
-  for(const t of ['settings','pitstops','insights']){await p.goto(BASE+'/advanced.html#'+t);ok(await p.getAttribute(`[data-tab=${t}]`,'class')==='btn active','#'+t+' opens '+t+' tab')}
-  ok(await p.locator('a.home-link[href="./index.html"]').count()===1,'link back to Today');
-  await p.goto(BASE+'/advanced.html');
-  const legend=await p.locator('.legend .dot.bad').evaluate(e=>getComputedStyle(e).backgroundColor),cell=await p.locator('.day.bad').first().evaluate(e=>getComputedStyle(e).backgroundColor);
-  ok(legend===cell,'Detour legend colour matches calendar',legend+' vs '+cell);
-  await p.click('.day:not(:disabled) >> text="14"');await p.click('#q1 [data-answer=yes]');await p.click('#q2 [data-answer=no]');
-  ok(await p.textContent('#q1 .active')==='No','choosing "boundary missed" clears "goal met"');
-  await p.click('#q1 [data-answer=yes]');ok(await p.textContent('#q2 .active')==='Yes','choosing "goal met" sets "boundary met"');
-  await p.click('#saveDay');ok((await store(p,'entries'))['2026-11-14']?.q2==='yes','saved entry is consistent');
+ console.log('New install');
+ {const p=await open(NOW,null);ok(await p.isVisible('#journeyForm')&&!(await p.isVisible('.tabbar')),'first launch asks for a journey (no fake data)');
+  await p.click('#jfTemplates button:has-text("Walking")');ok(await p.inputValue('#jfName')==='Walking'&&/walk/.test(await p.inputValue('#jfGoal')),'template fills editable fields');
+  await p.fill('#jfGoal','Did I walk 10,000 steps?');await p.click('#jfSave');await p.waitForTimeout(200);
+  const s=await store(p);ok(s.journeys.length===1&&s.journeys[0].goal==='Did I walk 10,000 steps?'&&s.journeys[0].start==='2026-11-19','journey created with my own wording');
+  ok(await p.textContent('#pct')==='—'&&await p.evaluate(()=>road.days.length)===0,'empty road: no history shown');
+  await p.click('#checkin');await p.click('[data-q=q1][data-v=yes]');ok(await p.getAttribute('[data-q=q2][data-v=yes]','aria-pressed')==='true','goal met implies boundary met');
+  await p.click('#saveCheck');await p.waitForTimeout(150);
+  ok(await p.evaluate(()=>road.days.length===1&&road.days[0].kind==='goal'&&road.anims.some(a=>a.type==='grow')&&road.anims.some(a=>a.type==='cam')),'check-in adds a road section and animates it forward');
+  ok(/Goal Day/.test(await p.textContent('#todayAction')),'today shows as recorded');
   ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
 
- console.log('Pit Stop cooldown (Mon–Wed run → next eligible Thursday a week later)');
- {const run={'2026-11-16':{pitstop:true,note:''},'2026-11-17':{pitstop:true,note:''},'2026-11-18':{pitstop:true,note:''}};
-  const seed={settings:SETTINGS,entries:run,pit:{spent:Object.keys(run).map(date=>({date,at:''})),claimed:{a:true,b:true,c:true,d:true}}};
-  for(const [day,expect] of [['2026-11-25T12:00:00',false],['2026-11-26T12:00:00',true]]){const p=await page(day,seed);await p.goto(BASE+'/advanced.html#pitstops');
-   ok((await p.isEnabled('#activatePit'))===expect,`${day.slice(0,10)} eligible=${expect}`,await p.textContent('#pitEligibility'));await p.context().close()}
-  const seed2={settings:SETTINGS,entries:{'2026-11-18':{pitstop:true,note:''}},pit:{spent:[{date:'2026-11-18',at:''}],claimed:{a:true,b:true}}};
-  const p=await page(NOW,seed2);await p.goto(BASE+'/advanced.html#pitstops');ok(await p.isEnabled('#activatePit'),'day after a 1-day Pit Stop can continue the run');await p.context().close()}
-
- console.log('Home screen');
- {const p=await page(NOW,{settings:SETTINGS,entries:{}});
-  ok(await p.locator('#roadSegments .segment').count()===0&&await p.locator('#roadSegments .future').count()===1,'empty journey: no fake segments, road ahead shown');
-  ok(await p.textContent('#roadPct')==='—','empty journey: no percentage');
-  ok(await p.isDisabled('#calendar .day >> text="25"'),'future day disabled');ok(await p.isDisabled('#calendar .day >> text="1"')===false&&await p.isDisabled('#calendar >> nth=0')===false,'start-date day enabled');
-  await p.click('#checkin');await p.click('[data-question=q1][data-value=yes]');
-  ok(await p.getAttribute('[data-question=q2][data-value=yes]','class')==='chosen','goal met implies boundary met');
-  await p.click('#saveCheck');const e=(await store(p,'entries'))['2026-11-19'];ok(e&&e.q1==='yes'&&e.q2==='yes','check-in saved for today');
-  ok(await p.locator('#roadSegments .segment').count()===1,'one segment after first check-in');
-  const len=await p.evaluate(()=>[document.querySelector('#roadSegments .segment').getTotalLength(),document.getElementById('roadShadow').getTotalLength()]);
-  ok(len[0]<len[1]*.1,'single day is a short section, not the whole road');
-  ok(await p.textContent('#roadPct')==='100%','percentage updates');
+ console.log('Journey Path follows real data');
+ {const p=await open(NOW,LEGACY);await p.waitForTimeout(300);
+  const before=await p.evaluate(()=>road.days.map(d=>d.date+':'+d.kind).join());
+  ok(before.split(',').length===10&&before.startsWith('2026-11-01:goal')&&before.includes('2026-11-08:pit'),'one section per recorded day, chronological, Pit Stop included');
+  await p.evaluate(()=>openCheck('2026-11-05'));await p.click('[data-q=q1][data-v=yes]');await p.click('#saveCheck');await p.waitForTimeout(150);
+  const after=await p.evaluate(()=>({list:road.days.map(d=>d.date+':'+d.kind),anims:road.anims.map(a=>a.type)}));
+  ok(after.list.length===10&&after.list[4]==='2026-11-05:goal','editing an earlier day updates its own section, no duplicate');
+  ok(after.anims.includes('pulse')&&!after.anims.includes('grow'),'edit highlights the section instead of growing the road');
+  await p.evaluate(()=>openCheck('2026-11-12'));await p.click('[data-q=q2][data-v=no]');await p.click('#saveCheck');await p.waitForTimeout(150);
+  ok(await p.evaluate(()=>road.days.length===11&&road.days.at(-1).kind==='detour'),'a Detour adds a section; nothing behind it is removed');
+  // tap a section → day detail
+  await p.waitForTimeout(2200);const hit=await p.evaluate(()=>{const r=document.getElementById('road').getBoundingClientRect();const c=h=>[h.poly.reduce((s,q)=>s+q[0],0)/h.poly.length,h.poly.reduce((s,q)=>s+q[1],0)/h.poly.length];
+   const vis=road.hit.filter(h=>{const [x,y]=c(h);return x>5&&y>5&&x<r.width-5&&y<r.height-5});const h=vis.find(h=>h.date==='2026-11-10')||vis[0];if(!h)return null;const [x,y]=c(h);return {date:h.date,x:r.left+x,y:r.top+y}});
+  if(hit){await p.mouse.click(hit.x,hit.y);await p.waitForTimeout(150)}
+  ok(hit&&await p.isVisible('#dayDialog')&&(await p.textContent('#dayTitle')).includes(new Date(hit.date+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'}))&&/Goal at the time/.test(await p.textContent('#dayBody')),'tapping a road section shows that day with the goal at the time');
   ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
- {const entries={};const d=new Date('2026-10-01T12:00:00');for(let i=0;i<25;i++){const k=d.toISOString().slice(0,10);entries[k]={q1:i%3?'yes':'no',q2:i%5?'yes':'no',result:i%5?'good':'bad'};if(entries[k].q1==='yes')entries[k].q2='yes',entries[k].result='good';d.setDate(d.getDate()+1)}
-  const p=await page(NOW,{settings:{...SETTINGS,start:'2026-09-01'},entries});const segs=await p.locator('#roadSegments .segment').evaluateAll(a=>a.map(s=>s.dataset.date));
-  ok(segs.length===18&&segs.at(-1)==='2026-10-25'&&segs[0]==='2026-10-08','road shows the latest 18 recorded days in order');
-  const s=Object.values(entries);const good=s.filter(e=>e.result==='good').length;ok(await p.textContent('#roadPct')===Math.round(good/s.length*100)+'%','Good Days % = (goal+progress)/recorded');await p.context().close()}
- {const p=await page('2026-11-19T23:59:40',{settings:SETTINGS,entries:{}});ok(await p.textContent('#calendar .today')==='19','today before midnight');
-  await p.clock.runFor(60000);ok(await p.textContent('#calendar .today')==='20','today rolls over at midnight without reload');
-  await p.click('#checkin');ok(await p.textContent('#checkDate')==='November 20, 2026','check-in targets the new day');await p.context().close()}
- {const p=await page(NOW,{settings:SETTINGS,entries:{},journal:{'2026-11-18':'keep','2026-11-17':'remove me'}});await p.click('[data-screen=journal]');
-  await p.locator('.journal-entry',{hasText:'remove me'}).locator('text=Delete entry').click();
-  ok(/Delete the journal entry for 2026-11-17/.test(p.lastDialog)&&JSON.stringify(await store(p,'journal'))==='{"2026-11-18":"keep"}','journal delete asks and removes only that entry');await p.context().close()}
+ {const p=await open(NOW,LEGACY,{reduced:true});await p.waitForTimeout(200);await p.click('#checkin');await p.click('[data-q=q1][data-v=no]');await p.click('[data-q=q2][data-v=yes]');await p.click('#saveCheck');await p.waitForTimeout(100);
+  ok(await p.evaluate(()=>road.anims.length===0&&Math.abs(road.camZ-road.targetCam(road.days.length))<1e-9),'reduced motion: road updates without animation');await p.context().close()}
+
+ console.log('Multiple journeys');
+ {const p=await open(NOW,LEGACY);await go(p,'journeys');await p.click('#newJourney');await p.click('#jfTemplates button:has-text("Reading")');await p.click('#jfSave');await p.waitForTimeout(200);
+  let s=await store(p);ok(s.journeys.length===2&&s.activeJourneyId===s.journeys[1].id,'second journey created and selected');
+  ok(await p.textContent('#pct')==='—'&&await p.evaluate(()=>road.days.length)===0,'new journey has its own empty road');
+  await p.click('#checkin');await p.click('[data-q=q2][data-v=no]');await p.click('#saveCheck');await p.waitForTimeout(150);
+  s=await store(p);ok(Object.keys(s.journeys[0].entries).length===10&&Object.keys(s.journeys[1].entries).length===1,'check-ins stay in their own journey');
+  await go(p,'journeys');await p.click('.jcard >> nth=0');await p.waitForTimeout(150);ok(await p.textContent('#pct')==='89%'&&await p.evaluate(()=>road.days.length)===10,'switching back restores that journey’s road and stats');
+  await go(p,'journeys');await p.click('#editJourney');await p.fill('#jfGoal','Did I stay around 1,900 calories?');await p.click('#jfSave');await p.waitForTimeout(150);
+  s=await store(p);const j=s.journeys[0];ok(j.chapters.length>=2&&j.chapters.at(-1).from==='2026-11-19'&&j.entries['2026-11-02'].result==='good','goal change starts a chapter; past days unchanged');
+  await go(p,'history');ok(/1,900/.test(await p.textContent('#chapters'))&&/2,100/.test(await p.textContent('#chapters')),'History shows chapters');
+  ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
+
+ console.log('Journal');
+ {const p=await open(NOW,LEGACY);await go(p,'journal');ok((await p.locator('.note').count())===1,'migrated entry listed');
+  await p.click('#newNote');await p.fill('#nText','Reached a milestone!');await p.selectOption('#nType','milestone');await p.click('#nSave');await p.waitForTimeout(150);
+  await p.click('#newNote');await p.fill('#nText','Second entry same day');await p.selectOption('#nJourney','');await p.click('#nSave');await p.waitForTimeout(150);
+  ok((await p.locator('.note').count())===3,'several entries per day, journey optional');
+  await p.click('#noteTypes [data-type=milestone]');ok((await p.locator('.note').count())===1,'filter by type');
+  await p.click('#noteTypes [data-type=all]');await p.fill('#noteSearch','second');ok((await p.locator('.note').count())===1,'search');
+  await p.fill('#noteSearch','');await p.locator('.note',{hasText:'Old reflection'}).locator('text=Delete').click();await p.waitForTimeout(100);
+  ok(p.dialogs.some(d=>/Delete this journal entry/.test(d))&&(await store(p)).journal.length===2,'delete asks first');
+  ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
+
+ console.log('Pit Stops');
+ {const v6=(await (async()=>{const MJ=require('../core.js');const s=MJ.emptyStore();const j=MJ.newJourney({name:'P',goal:'g?',boundary:'b?',start:'2026-10-01'});j.entries=days('2026-10-01',Array(18).fill('p'));s.journeys=[j];s.activeJourneyId=j.id;return s})());
+  const p=await open(NOW,{v6});await go(p,'pit');ok(await p.textContent('#pitBalance')==='1','18 Good Days (all Progress) earn a credit');
+  await p.click('#takePit');await p.waitForTimeout(200);let s=await store(p);
+  ok(s.journeys[0].entries['2026-11-19'].pitstop&&/Pit Stop Day/.test(await p.textContent('#todayAction'))&&!(await p.isVisible('#checkin')),'Pit Stop closes today’s tracking');
+  await p.reload();await p.waitForTimeout(150);ok(/Pit Stop Day/.test(await p.textContent('#todayAction')),'Pit Stop state survives reopening');
+  ok(await p.evaluate(()=>road.days.at(-1).kind==='pit'),'Pit Stop appears as a purple road section');await p.context().close()}
+
+ console.log('Backup, restore, reset, delete');
+ {const p=await open(NOW,LEGACY);await go(p,'journeys');await p.click('#newJourney');await p.click('#jfTemplates button:has-text("Reading")');await p.click('#jfSave');await p.waitForTimeout(150);
+  await p.click('#checkin');await p.click('[data-q=q1][data-v=yes]');await p.click('#saveCheck');await p.waitForTimeout(100);
+  await go(p,'settings');const [dl]=await Promise.all([p.waitForEvent('download'),p.click('#exportBtn')]);const file=await dl.path();const data=JSON.parse(fs.readFileSync(file,'utf8'));
+  ok(dl.suggestedFilename()==='MyJourney-Backup-2026-11-19.json','JSON backup file name');
+  ok(data.format==='my-journey-backup'&&data.schema===6&&data.data.journeys.length===2&&data.data.journal.length===1,'backup has every journey and the journal');
+  ok(data.summary[0].badges.length>0&&'pitCredits' in data.summary[0]&&data.data.journeys[0].pit.spent.length===1&&data.data.journeys[0].chapters.length>=1,'backup has achievements, Pit Stop ledger and chapters');
+  const before=await store(p);
+  // reset keeps journal
+  await go(p,'journeys');await p.click('.jcard >> nth=0');await go(p,'settings');await p.click('#resetBtn');await p.click('#resetDialog button[value=reset]');await p.waitForTimeout(150);
+  let s=await store(p);ok(Object.keys(s.journeys[0].entries).length===0&&s.journal.length===1&&s.journeys.length===2,'reset clears entries, keeps journal and journey');
+  // delete requires typing the name
+  await go(p,'settings');await p.click('#deleteBtn');ok(await p.isDisabled('#deleteGo'),'delete disabled until name typed');ok(await p.isVisible('#deleteExport'),'offers export first');
+  await p.fill('#deleteConfirm','Mindful eating');await p.click('#deleteGo');await p.waitForTimeout(150);s=await store(p);
+  ok(s.journeys.length===1&&s.journeys[0].name==='Reading'&&s.journal.length===1&&s.journal[0].journeyId===null,'journey deleted; journal kept as general entry');
+  // restore: replace
+  await go(p,'settings');await p.setInputFiles('#importFile',file);await p.waitForSelector('#restoreDialog[open]');ok(/2 journeys/.test(await p.textContent('#restoreBody')),'restore explains contents first');
+  await p.click('#restoreReplace');await p.waitForTimeout(250);s=await store(p);
+  const canon=x=>JSON.stringify(x,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort()):v);
+  ok(canon(s.journeys.map(j=>({...j,pit:{spent:j.pit.spent}})))===canon(before.journeys.map(j=>({...j,pit:{spent:j.pit.spent}})))&&canon(s.journal)===canon(before.journal),'replace restores everything exactly');
+  // restore: merge does not duplicate
+  await go(p,'settings');await p.setInputFiles('#importFile',file);await p.waitForSelector('#restoreDialog[open]');await p.click('#restoreMerge');await p.waitForTimeout(250);s=await store(p);
+  ok(s.journeys.length===4&&s.journal.length===1,'merge adds journeys alongside, no duplicate journal entries');
+  // bad file
+  const bad=path.join(os.tmpdir(),'mj-bad.json');fs.writeFileSync(bad,'{"hello":1}');const pre=JSON.stringify(await store(p));await go(p,'settings');await p.setInputFiles('#importFile',bad);await p.waitForTimeout(250);
+  ok(p.dialogs.some(d=>/Nothing on this device was changed/.test(d))&&JSON.stringify(await store(p))===pre,'invalid file rejected, nothing changed');
+  // Build 1 backups still import
+  const b1=path.join(os.tmpdir(),'mj-b1.json');fs.writeFileSync(b1,JSON.stringify({app:'calorie-calendar',version:5,exportedAt:'2026-11-18T00:00:00Z',entries:days('2026-11-01',['g','s']),journal:{'2026-11-01':'b1 note'},pit:{spent:[{date:'2026-11-02',at:''}],claimed:{'target-14':true}},settings:{name:'From Build 1',type:'calories',target:2000,limit:2500,start:'2026-11-01'}}));
+  await go(p,'settings');await p.setInputFiles('#importFile',b1);await p.waitForSelector('#restoreDialog[open]');await p.click('#restoreMerge');await p.waitForTimeout(250);s=await store(p);
+  ok(s.journeys.some(j=>j.name==='From Build 1'&&j.entries['2026-11-02'].pitstop)&&s.journal.some(n=>n.text==='b1 note'),'Build 1 backup imports with Pit Stops and journal');
+  ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
+
+ console.log('Dates and navigation');
+ {const p=await open('2026-11-19T23:59:40',LEGACY);ok(await p.textContent('#calendar .today')==='19','today before midnight');
+  await p.clock.runFor(60000);ok(await p.textContent('#calendar .today')==='20','day rolls over at midnight while open');
+  await p.click('#checkin');ok(/NOVEMBER 20/.test(await p.textContent('#checkDate')),'check-in targets the new day');
+  ok(await p.isDisabled('#calendar .day >> text="25"'),'future days disabled');await p.context().close()}
+ {const p=await open(NOW,LEGACY);await p.goto(BASE+'/advanced.html#pitstops');await p.waitForURL(/#pit$/);ok(await p.isVisible('#pit'),'old advanced.html links open the matching screen');
+  await go(p,'history');await p.click('[data-hview=year]');ok(await p.locator('.mini').count()===12,'year view');await p.click('[data-hview=lifetime]');ok(await p.locator('.mini').count()>=12,'lifetime view');
+  await p.click('[data-hview=month]');await p.click('#hPrev');ok(/October 2026/.test(await p.textContent('#hTitle')),'month navigation');
+  await p.setViewportSize({width:320,height:640});await go(p,'today');const sw=await p.evaluate(()=>document.documentElement.scrollWidth);ok(sw<=320,'no horizontal scroll at 320px',String(sw));
+  ok(!p.errors.length,'no page errors',p.errors.join('|'));await p.context().close()}
 
  await browser.close();server.close();console.log(`\n${pass} passed, ${fail} failed`);process.exit(fail?1:0)})().catch(e=>{console.error(e);process.exit(1)});

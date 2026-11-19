@@ -125,10 +125,10 @@ Other risks found:
 | # | Increment | Why first | Status |
 |---|---|---|---|
 | 1 | **Build 1: Stabilise.** Complete backup/restore, navigation dead ends, midnight rollover, answer consistency, road truthfulness and performance, journal delete, regression tests | Data loss bugs come before anything else | **Done this session** |
-| 2 | **Build 2: Unified core + data model v5.** One shared `core.js` (classification, stats, Pit Stop ledger, storage); a `journeys[]` model with per-journey entries, chapters, wallet and journal links; a one-time verified migration from the V4 keys, with old keys retained; `navigator.storage.persist()` | Multiple journeys and chapters require it, and it removes the duplicate rule sets | Next |
-| 3 | **Build 3: Core features on the new model.** Journeys tab (create from templates or custom, edit, archive, switch); chapters recorded on goal change and shown in History; journal v2 (many entries, journey link, type filter, search); Pit Stop summary on Today | Approved functionality | Planned |
-| 4 | **Build 4: Universal backup v6.** All journeys, chapters and journals; `.mjourney` extension decision; per-journey or full restore with replace-vs-merge choice; optional reminders | Must follow the data model | Planned |
-| 5 | **Build 5: Journey Path visual pass.** Perspective road with depth narrowing, layered atmospheric mountains, cyan travelling light, forward-camera reveal, inspect-a-section sheet; then fold the advanced page into the V5 visual system | The visual centerpiece, done once the data under it is final | Planned |
+| 2 | **Build 2: Unified core + data model v6.** One shared `core.js` (classification, stats, Pit Stop ledger, storage); a `journeys[]` model with per-journey entries, chapters, wallet and journal links; a one-time verified migration from the V4 keys, with old keys retained; `navigator.storage.persist()` | Multiple journeys and chapters require it, and it removes the duplicate rule sets | **Done** (with 3 and part of 5) |
+| 3 | **Build 3: Core features on the new model.** Journeys tab (create from templates or custom, edit, switch); chapters recorded on goal change and shown in History; journal v2 (many entries, journey link, type filter, search); Pit Stop summary on Today | Approved functionality | **Done in Build 2** (archive not yet) |
+| 4 | **Build 4: Universal backup v6.** All journeys, chapters and journals; `.mjourney` extension decision; per-journey or full restore with replace-vs-merge choice; optional reminders | Must follow the data model | **Done in Build 2** (`.mjourney` reserved for native) |
+| 5 | **Build 5: Journey Path visual pass.** Perspective road with depth narrowing, layered atmospheric mountains, cyan travelling light, forward-camera reveal, inspect-a-section sheet; then fold the advanced page into the V5 visual system | The visual centerpiece, done once the data under it is final | **First full pass done in Build 2**; refinement against the reference image pending |
 | 6 | Mobile and accessibility pass, plus real-device testing on iPhone and Android | | Planned |
 | 7 | Native packaging (Capacitor is the likely fit: no framework, static files) and store purchases | | Planned |
 
@@ -136,3 +136,5 @@ Other risks found:
 1. **Pit Stop earning rule:** Build 1 keeps V4 behaviour (Goal Days only, 14/21/90). Should Progress Days count (the "18 good days" proposal)?
 2. **Backup extension:** keep `.json` for now? On iOS, a custom `.mjourney` extension can be greyed out in the file picker until the native app registers the type. Recommendation: `.json` in the PWA, and `.mjourney` once native.
 3. **Reset:** should "Reset journey entries" also delete the journal? Build 1 keeps it and says so.
+
+> **Update, Build 2:** the decisions above were made by the owner and are implemented (see `docs/BUILD-NOTES.md`).

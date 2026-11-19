@@ -1,1 +1,218 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07172e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="My Journey"><link rel="apple-touch-icon" href="./icon-180.png"><link rel="manifest" href="./manifest.webmanifest"><title>My Journey</title><link rel="stylesheet" href="./v5.css"></head><body><main class="app"><header><button class="icon-btn" id="menu" aria-label="Open settings">☰</button><div class="brand">My <i>Journey</i><small>VERSION 5 · BUILD 1</small></div><button class="icon-btn" id="settings" aria-label="Settings">⚙</button></header><section id="home" class="screen"><div class="journey-head"><span class="eyebrow">CURRENT JOURNEY</span><h1 id="journeyTitle">My Journey</h1><p id="journeySubtitle">Your life. Your choices. Your responsibility.</p></div><section class="landscape" aria-label="Animated journey road"><div class="sky"></div><div class="mountains m1"></div><div class="mountains m2"></div><div class="mountains m3"></div><div class="stars"></div><svg id="road" viewBox="0 0 420 215" preserveAspectRatio="none" role="img" aria-label="Your days represented as a winding, growing path"><defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path id="roadShadow"/><g id="roadSegments"></g><path id="roadEdge"/><circle id="roadPulse" r="5" fill="#ffffff" filter="url(#glow)"/></svg><div class="road-copy"><span>YOUR JOURNEY SO FAR</span><strong id="roadPct">—</strong><small>Good days</small></div></section><p class="sr-only" id="roadAnnouncement" role="status" aria-live="polite"></p><div class="four-stats" id="stats"></div><div class="month-card"><div class="month-head"><button id="prevMonth" aria-label="Previous month">‹</button><h2 id="monthTitle"></h2><button id="nextMonth" aria-label="Next month">›</button></div><div class="week" id="week"></div><div class="calendar" id="calendar"></div><div class="legend"><span><i class="swatch goal"></i>Goal</span><span><i class="swatch progress"></i>Progress</span><span><i class="swatch detour"></i>Detour</span><span><i class="swatch pit"></i>Pit Stop</span></div></div><button class="primary" id="checkin">✓ &nbsp; Check In Today</button><p class="under">Each day adds to your path. Nothing erases the road behind you.</p></section><section id="check" class="screen hidden"><button class="back" id="backCheck">‹ Back</button><div class="section-intro"><span class="eyebrow" id="checkDate"></span><h1>How did today go?</h1><p>Two questions. Your own definition of progress.</p></div><div class="question"><div class="q-number">01</div><h2 id="q1Label">Did you meet your goal today?</h2><p id="q1Hint"></p><div class="answers"><button data-question="q1" data-value="yes">Yes</button><button data-question="q1" data-value="no">No</button></div></div><div class="question"><div class="q-number">02</div><h2 id="q2Label">Did you stay within your progress boundary?</h2><p id="q2Hint"></p><div class="answers"><button data-question="q2" data-value="yes">Yes</button><button data-question="q2" data-value="no">No</button></div></div><label class="note-label">Optional note<textarea id="checkNote" placeholder="Anything you'd like to remember about today..."></textarea></label><button class="primary" id="saveCheck">Save today's entry</button></section><section id="journal" class="screen hidden"><div class="section-intro"><span class="eyebrow">YOUR PRIVATE RECORD</span><h1>Journal</h1><p>Your thoughts belong to you. Stored only on this device.</p></div><label class="note-label">Journal date<input type="date" id="journalDate"></label><label class="note-label">Write your entry<textarea id="journalText" rows="8" placeholder="What happened today? What did you learn? Where are you heading next?"></textarea></label><button class="primary" id="saveJournal">Save journal entry</button><h2 class="list-title">Past entries</h2><div id="journalList"></div></section><section id="insights" class="screen hidden"><div class="section-intro"><span class="eyebrow">THE BIG PICTURE</span><h1>Your progress</h1><p>A record, not a judgment.</p></div><div id="insightCards"></div><button class="secondary" id="fullInsights">Open detailed statistics & achievements ↗</button></section><section id="history" class="screen hidden"><div class="section-intro"><span class="eyebrow">EVERY DAY MATTERS</span><h1>Your history</h1><p>Explore the path you've already traveled.</p></div><div id="historyMonths"></div><button class="secondary" id="fullHistory">Open lifetime calendar ↗</button></section><nav class="bottom" aria-label="Main navigation"><button data-screen="home" class="selected"><span>⌂</span>Today</button><button data-screen="history"><span>▦</span>History</button><button data-screen="insights"><span>▥</span>Insights</button><button data-screen="journal"><span>▤</span>Journal</button><button id="more"><span>◇</span>More</button></nav></main><script src="./v5.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#030a18">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Journey">
+<meta name="description" content="Your life. Your choices. Your responsibility.">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>My Journey</title>
+<link rel="stylesheet" href="./v5.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <button class="journey-chip" id="journeyChip" aria-label="Switch journey"><span id="chipIcon">◆</span><span id="chipName">My Journey</span><span class="chev" aria-hidden="true">▾</span></button>
+    <button class="icon-btn" id="openSettings" aria-label="Settings and backup">⚙</button>
+  </header>
+
+  <div id="fatal" class="banner danger hidden" role="alert"></div>
+
+  <main>
+    <!-- TODAY -->
+    <section id="today" class="screen" aria-label="Today">
+      <div id="reminder" class="banner hidden" role="status"><span id="reminderText"></span><div class="banner-actions"><button class="link" id="reminderBackup">Back up now</button><button class="link muted" id="reminderLater">Later</button></div></div>
+      <div class="journey-title"><h1 id="jName">My Journey</h1><p id="jGoal"></p></div>
+      <div class="hero">
+        <canvas id="road" role="img" aria-label="Your journey path"></canvas>
+        <div class="hero-pct" aria-live="polite">
+          <strong id="pct">—</strong>
+          <span id="pctLabel">Good days</span>
+        </div>
+      </div>
+      <p class="hero-hint" id="heroHint">Tap any section of road to see that day</p>
+      <p class="sr-only" id="roadAnnouncement" role="status" aria-live="polite"></p>
+      <div class="stats4" id="stats"></div>
+      <div id="todayAction"></div>
+      <button class="pit-row" id="pitRow"></button>
+      <div class="card">
+        <div class="month-head"><button class="round" id="calPrev" aria-label="Previous month">‹</button><h2 id="calTitle"></h2><button class="round" id="calNext" aria-label="Next month">›</button></div>
+        <div id="calendar"></div>
+        <div class="legend" aria-hidden="true"><span><i class="sw goal">★</i>Goal</span><span><i class="sw progress">✓</i>Progress</span><span><i class="sw detour">↝</i>Detour</span><span><i class="sw pit">☕</i>Pit Stop</span></div>
+      </div>
+      <p class="footnote">Each day adds to your road. Nothing erases the road behind you.</p>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="history" class="screen hidden" aria-label="History">
+      <div class="intro"><span class="eyebrow">EVERY DAY MATTERS</span><h1>History</h1><p>The road you've already traveled.</p></div>
+      <div class="seg" role="tablist"><button data-hview="month" class="on">Month</button><button data-hview="year">Year</button><button data-hview="lifetime">Lifetime</button></div>
+      <div class="card">
+        <div class="month-head"><button class="round" id="hPrev" aria-label="Previous">‹</button><h2 id="hTitle"></h2><button class="round" id="hNext" aria-label="Next">›</button></div>
+        <div id="hBody"></div>
+        <p class="muted small" id="hStats"></p>
+      </div>
+      <h2 class="section-title">Chapters</h2>
+      <p class="muted small">When you change your goal, a new chapter begins. Earlier days keep the result they were recorded with.</p>
+      <div id="chapters"></div>
+    </section>
+
+    <!-- INSIGHTS -->
+    <section id="insights" class="screen hidden" aria-label="Insights">
+      <div class="intro"><span class="eyebrow">THE BIG PICTURE</span><h1>Insights</h1><p>A record, not a judgment.</p></div>
+      <div class="card big-stat"><strong id="iRate">—</strong><span id="iRateText"></span></div>
+      <h2 class="section-title">Recent windows</h2>
+      <div class="grid4" id="iWindows"></div>
+      <p class="muted small">Percentages use recorded days in each window. Unrecorded days and Pit Stops are not counted.</p>
+      <h2 class="section-title">Totals</h2>
+      <div class="card" id="iTotals"></div>
+      <h2 class="section-title">30-day trend</h2>
+      <div class="card"><svg id="iTrend" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Rolling 30-day good-day percentage for the last 90 days"></svg><p class="muted small">Each point is the share of good days among recorded days in the 30 days before it.</p></div>
+      <h2 class="section-title">Compare months</h2>
+      <div class="card"><div class="two"><label>First<input type="month" id="cmpA"></label><label>Second<input type="month" id="cmpB"></label></div><div class="two" id="cmpOut"></div></div>
+      <h2 class="section-title">Achievements</h2>
+      <div class="card rank-card"><span class="eyebrow">JOURNEY RANK</span><strong id="rank"></strong><div class="bar"><i id="rankBar"></i></div><span class="muted small" id="rankNext"></span></div>
+      <div class="badges" id="ranks"></div>
+      <h3 class="sub-title">Milestones</h3>
+      <div class="badges" id="badges"></div>
+      <p class="muted small">Ranks are earned through cumulative good days. They never go down after a tough day.</p>
+    </section>
+
+    <!-- JOURNAL -->
+    <section id="journal" class="screen hidden" aria-label="Journal">
+      <div class="intro row-between"><div><span class="eyebrow">YOUR PRIVATE RECORD</span><h1>Journal</h1><p>Stored only on this device.</p></div><button class="primary small-btn" id="newNote">＋ New entry</button></div>
+      <div class="chips" id="noteTypes"><button data-type="all" class="on">All</button><button data-type="reflection">Reflections</button><button data-type="note">Notes</button><button data-type="milestone">Milestones</button></div>
+      <div class="two filters"><label class="sr-only" for="noteJourney">Journey</label><select id="noteJourney"></select><label class="sr-only" for="noteSearch">Search</label><input id="noteSearch" type="search" placeholder="Search entries"></div>
+      <div id="notes"></div>
+    </section>
+
+    <!-- JOURNEYS -->
+    <section id="journeys" class="screen hidden" aria-label="Journeys">
+      <div class="intro row-between"><div><span class="eyebrow">YOUR COMMITMENTS</span><h1>Journeys</h1><p>Each journey keeps its own road and history.</p></div><button class="primary small-btn" id="newJourney">＋ New</button></div>
+      <div id="journeyList"></div>
+      <button class="secondary" id="editJourney">Edit current journey</button>
+    </section>
+
+    <!-- JOURNEY FORM -->
+    <section id="journeyForm" class="screen hidden" aria-label="Journey details">
+      <button class="back" data-back>‹ Back</button>
+      <div class="intro"><span class="eyebrow" id="jfEyebrow">NEW JOURNEY</span><h1 id="jfTitle">Start a journey</h1><p id="jfIntro">You define what counts. Templates are only starting points — change any wording.</p></div>
+      <div id="jfTemplates" class="chips wrap"></div>
+      <label class="field">Name<input id="jfName" maxlength="60" placeholder="e.g. Morning walks"></label>
+      <div class="field">Icon<div class="icons" id="jfIcons"></div></div>
+      <label class="field">Question 1 — your full goal<textarea id="jfGoal" rows="2" maxlength="160" placeholder="Did I meet my full goal today?"></textarea></label>
+      <label class="field">Question 2 — your progress boundary<textarea id="jfBoundary" rows="2" maxlength="160" placeholder="Did I stay within my progress boundary today?"></textarea><small>The easier line that still counts as a good day. Meeting the full goal always counts as meeting this.</small></label>
+      <label class="field">Start date<input id="jfStart" type="date"></label>
+      <p class="muted small" id="jfChapterNote"></p>
+      <p class="error" id="jfError" role="alert"></p>
+      <button class="primary" id="jfSave">Save journey</button>
+    </section>
+
+    <!-- CHECK-IN -->
+    <section id="check" class="screen hidden" aria-label="Check in">
+      <button class="back" data-back>‹ Back</button>
+      <div class="intro"><span class="eyebrow" id="checkDate"></span><h1>How did it go?</h1><p>Two questions. Your own definition of progress.</p></div>
+      <div class="question"><div class="q-number">01 · FULL GOAL</div><h2 id="q1Label"></h2><div class="answers" role="group" aria-labelledby="q1Label"><button data-q="q1" data-v="yes" aria-pressed="false">Yes</button><button data-q="q1" data-v="no" aria-pressed="false">No</button></div></div>
+      <div class="question"><div class="q-number">02 · PROGRESS BOUNDARY</div><h2 id="q2Label"></h2><div class="answers" role="group" aria-labelledby="q2Label"><button data-q="q2" data-v="yes" aria-pressed="false">Yes</button><button data-q="q2" data-v="no" aria-pressed="false">No</button></div></div>
+      <p class="result-preview" id="checkPreview" aria-live="polite"></p>
+      <label class="field">Optional note<textarea id="checkNote" rows="3" maxlength="2000" placeholder="Anything you'd like to remember about this day…"></textarea></label>
+      <button class="primary" id="saveCheck">Save</button>
+      <button class="secondary danger-text hidden" id="clearCheck">Clear this day</button>
+    </section>
+
+    <!-- PIT STOPS -->
+    <section id="pit" class="screen hidden" aria-label="Pit Stops">
+      <button class="back" data-back>‹ Back</button>
+      <div class="intro"><span class="eyebrow">EARNED DAYS AWAY</span><h1>Pit Stops</h1><p>An optional, earned break from tracking — never a penalty.</p></div>
+      <div class="grid3"><div class="tile"><strong id="pitBalance">0</strong><small>Available</small></div><div class="tile"><strong id="pitEarned">0</strong><small>Earned</small></div><div class="tile"><strong id="pitUsed">0</strong><small>Used</small></div></div>
+      <div class="card"><p id="pitEligibility" class="lead"></p><button class="primary pit-btn" id="takePit">☕ Take a Pit Stop today</button><p class="muted small">Once taken, today is closed to tracking until midnight. You can take up to three days in a row.</p></div>
+      <h2 class="section-title">Earning credits</h2>
+      <div class="card"><ul class="rules"><li><b>1 credit</b> for every 18 Good Days (Goal + Progress)</li><li><b>1 bonus</b> for each run of 21 consecutive Goal Days</li><li><b>1 one-time bonus</b> at 90 recorded days</li></ul><p id="pitProgress" class="lead small"></p><p class="muted small">Credits never expire. Editing past days never removes or duplicates a credit.</p></div>
+      <h2 class="section-title">Cooldown</h2>
+      <div class="card"><p class="muted small">After 1 Pit Stop day: 3 full days · after 2 in a row: 5 full days · after 3 in a row: 7 full days. Cooldown only limits Pit Stops — you can always check in.</p></div>
+      <h2 class="section-title">Pit Stops taken</h2>
+      <div class="card" id="pitHistory"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings" class="screen hidden" aria-label="Settings">
+      <button class="back" data-back>‹ Back</button>
+      <div class="intro"><span class="eyebrow">YOUR DATA, YOUR CONTROL</span><h1>Settings</h1></div>
+      <h2 class="section-title">Backup &amp; restore</h2>
+      <div class="card">
+        <p class="small">A backup file contains every journey, check-in, note, goal chapter, Pit Stop credit, achievement and journal entry. It works on iPhone and Android.</p>
+        <div class="two"><button class="primary" id="exportBtn">Export backup</button><button class="secondary" id="importBtn">Restore…</button></div>
+        <input type="file" id="importFile" accept="application/json,.json,.mjourney" class="hidden">
+        <p class="muted small" id="backupStatus"></p>
+        <label class="field inline">Backup reminder<select id="reminderDays"><option value="0">Off</option><option value="7">Weekly</option><option value="14">Every 2 weeks</option><option value="30">Monthly</option><option value="60">Every 2 months</option></select></label>
+        <p class="muted small">Nothing is ever uploaded. If this device is lost and you have no backup copy, your history cannot be recovered by anyone — including us.</p>
+      </div>
+      <h2 class="section-title">Current journey</h2>
+      <div class="card">
+        <p class="small"><b id="sJourney"></b></p>
+        <button class="secondary" id="resetBtn">Reset journey entries…</button>
+        <p class="muted small">Clears this journey's check-ins, notes and Pit Stop wallet. Journal entries, goals and chapters are kept.</p>
+        <button class="secondary danger-text" id="deleteBtn">Delete entire journey…</button>
+        <p class="muted small">Removes the journey and everything recorded in it.</p>
+      </div>
+      <h2 class="section-title">About</h2>
+      <div class="card"><p class="small">My Journey · Version 5 · Build 2</p><p class="muted small">Works offline. No account, no advertising, no tracking. Your records stay on this device unless you export them.</p></div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <button data-nav="today"><span aria-hidden="true">◉</span>Today</button>
+    <button data-nav="history"><span aria-hidden="true">▦</span>History</button>
+    <button data-nav="insights"><span aria-hidden="true">◭</span>Insights</button>
+    <button data-nav="journal"><span aria-hidden="true">✎</span>Journal</button>
+    <button data-nav="journeys"><span aria-hidden="true">⛰</span>Journeys</button>
+  </nav>
+</div>
+
+<dialog id="dayDialog" class="sheet" aria-labelledby="dayTitle"><form method="dialog">
+  <span class="eyebrow" id="dayEyebrow"></span><h2 id="dayTitle"></h2>
+  <div id="dayBody"></div>
+  <div class="sheet-actions"><button class="primary" id="dayCheck" value="check">Edit check-in</button><button class="secondary" id="dayNote" value="note">Write in journal</button><button class="link" value="close">Close</button></div>
+</form></dialog>
+
+<dialog id="noteDialog" class="sheet" aria-labelledby="noteTitle"><form method="dialog" id="noteForm">
+  <h2 id="noteTitle">Journal entry</h2>
+  <div class="two"><label class="field">Date<input type="date" id="nDate" required></label><label class="field">Type<select id="nType"><option value="reflection">Reflection</option><option value="note">Note</option><option value="milestone">Milestone</option></select></label></div>
+  <label class="field">Journey<select id="nJourney"></select></label>
+  <label class="field">Entry<textarea id="nText" rows="7" maxlength="20000" placeholder="What happened? What did you learn? Where are you heading next?"></textarea></label>
+  <p class="error" id="nError" role="alert"></p>
+  <div class="sheet-actions"><button class="primary" value="save" id="nSave">Save entry</button><button class="secondary danger-text hidden" value="delete" id="nDelete">Delete</button><button class="link" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
+
+<dialog id="restoreDialog" class="sheet" aria-labelledby="restoreTitle"><form method="dialog">
+  <h2 id="restoreTitle">Restore backup</h2>
+  <div id="restoreBody"></div>
+  <div class="sheet-actions"><button class="primary" value="merge" id="restoreMerge">Add to this device</button><button class="secondary danger-text" value="replace" id="restoreReplace">Replace everything on this device</button><button class="link" value="cancel">Cancel</button></div>
+</form></dialog>
+
+<dialog id="resetDialog" class="sheet" aria-labelledby="resetTitle"><form method="dialog">
+  <h2 id="resetTitle">Reset journey entries?</h2>
+  <p class="small" id="resetBody"></p>
+  <div class="sheet-actions"><button class="secondary" value="export" id="resetExport">Export a backup first</button><button class="primary danger" value="reset">Reset entries</button><button class="link" value="cancel">Cancel</button></div>
+</form></dialog>
+
+<dialog id="deleteDialog" class="sheet" aria-labelledby="deleteTitle"><form method="dialog">
+  <h2 id="deleteTitle">Delete entire journey?</h2>
+  <p class="small" id="deleteBody"></p>
+  <button type="button" class="secondary" id="deleteExport">Export a backup first</button>
+  <label class="check"><input type="checkbox" id="deleteNotes"> <span id="deleteNotesLabel">Also delete journal entries linked to this journey</span></label>
+  <label class="field">Type the journey name to confirm<input id="deleteConfirm" autocomplete="off"></label>
+  <div class="sheet-actions"><button class="primary danger" value="delete" id="deleteGo" disabled>Delete journey permanently</button><button class="link" value="cancel">Cancel</button></div>
+</form></dialog>
+
+<script src="./core.js"></script>
+<script src="./road.js"></script>
+<script src="./v5.js"></script>
+</body>
+</html>
